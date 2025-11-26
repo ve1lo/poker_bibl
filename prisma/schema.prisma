@@ -1,0 +1,88 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Player {
+  id            Int            @id @default(autoincrement())
+  telegramId    String         @unique
+  username      String?
+  firstName     String?
+  lastName      String?
+  phone         String?
+  createdAt     DateTime       @default(now())
+  registrations Registration[]
+}
+
+model Tournament {
+  id            Int               @id @default(autoincrement())
+  name          String
+  date          DateTime
+  type          String            // "PAID" | "FREE"
+  status        String            @default("SCHEDULED") // "SCHEDULED" | "RUNNING" | "PAUSED" | "FINISHED"
+  buyIn         Int?
+  stack         Int               @default(10000)
+  config        String?           // JSON string for extra config
+  
+  // Timer State
+  currentLevelIndex Int           @default(0)
+  levelStartedAt    DateTime?
+  timerPausedAt     DateTime?     // If set, timer is paused
+  timerSeconds      Int?          // Remaining seconds when paused
+  
+  levels        TournamentLevel[]
+  registrations Registration[]
+  events        GameEvent[]
+  
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+}
+
+model TournamentLevel {
+  id           Int        @id @default(autoincrement())
+  tournamentId Int
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  
+  levelNumber  Int
+  smallBlind   Int
+  bigBlind     Int
+  ante         Int        @default(0)
+  duration     Int        // in minutes
+  isBreak      Boolean    @default(false)
+}
+
+model Registration {
+  id           Int        @id @default(autoincrement())
+  playerId     Int
+  player       Player     @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  tournamentId Int
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  
+  status       String     @default("REGISTERED") // "REGISTERED" | "ELIMINATED"
+  rebuys       Int        @default(0)
+  addons       Int        @default(0)
+  place        Int?       // Final position
+  bountyCount  Int        @default(0)
+  points       Int?       // Calculated points for ranked tournaments
+  
+  createdAt    DateTime   @default(now())
+
+  @@unique([playerId, tournamentId])
+}
+
+model GameEvent {
+  id           Int        @id @default(autoincrement())
+  tournamentId Int
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  
+  type         String     // "LEVEL_START" | "ELIMINATION" | "PAUSE" | "RESUME" | "INFO"
+  description  String
+  timestamp    DateTime   @default(now())
+}
