@@ -9,7 +9,7 @@ export async function getDataSource() {
     }
 
     dataSource = new DataSource({
-        type: 'sqlite',
+        type: 'better-sqlite3',
         database: process.env.DATABASE_URL?.replace('file:', '') || './poker.db',
         synchronize: true,
         logging: false,

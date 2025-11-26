@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run all:*)",
+      "Bash(npm run:*)",
+      "Bash(pkill:*)",
+      "Bash(npm install:*)",
+      "Bash(curl:*)",
+      "Bash(node:*)",
+      "Bash(npm rebuild:*)",
+      "Bash(sudo apt:*)",
+      "Bash(sudo apt install:*)",
+      "Bash(./node_modules/.bin/node-pre-gyp:*)",
+      "Bash(npm cache clean:*)",
+      "Bash(npx tsx:*)",
+      "Bash(./node_modules/.bin/tsc:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(git push:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
