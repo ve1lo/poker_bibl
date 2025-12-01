@@ -4,6 +4,14 @@ import { getTemplate, updateTemplate } from '@/app/actions'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 
+interface Level {
+    smallBlind: number
+    bigBlind: number
+    ante: number
+    duration: number
+    isBreak: boolean
+}
+
 export default function EditTemplatePage({ params }: { params: Promise<{ id: string }> }) {
     const router = useRouter()
     const [id, setId] = useState<number | null>(null)
@@ -12,7 +20,7 @@ export default function EditTemplatePage({ params }: { params: Promise<{ id: str
     const [description, setDescription] = useState('')
     const [buyIn, setBuyIn] = useState('')
     const [stack, setStack] = useState('10000')
-    const [levels, setLevels] = useState<any[]>([])
+    const [levels, setLevels] = useState<Level[]>([])
     const [loading, setLoading] = useState(true)
 
     useEffect(() => {
@@ -52,7 +60,7 @@ export default function EditTemplatePage({ params }: { params: Promise<{ id: str
         setLevels(levels.filter((_, i) => i !== index))
     }
 
-    const updateLevel = (index: number, field: string, value: any) => {
+    const updateLevel = (index: number, field: keyof Level, value: number | boolean) => {
         const newLevels = [...levels]
         newLevels[index] = { ...newLevels[index], [field]: value }
         setLevels(newLevels)

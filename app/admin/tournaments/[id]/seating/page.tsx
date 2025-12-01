@@ -1,6 +1,7 @@
 import { getSeatingChart, getTournament } from '@/app/actions'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { Table, Registration } from '@/lib/entities'
 
 export default async function SeatingChartPage({ params }: { params: Promise<{ id: string }> }) {
     const { id: idStr } = await params
@@ -29,8 +30,8 @@ export default async function SeatingChartPage({ params }: { params: Promise<{ i
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                        {tables.map((table: any) => {
-                            const seatedPlayers = table.registrations?.filter((r: any) =>
+                        {tables.map((table: Table & { registrations: Registration[] }) => {
+                            const seatedPlayers = table.registrations?.filter((r: Registration) =>
                                 r.status === 'REGISTERED' && r.seatNumber
                             ) || []
 
@@ -57,7 +58,7 @@ export default async function SeatingChartPage({ params }: { params: Promise<{ i
                                         {/* Seats positioned around the table */}
                                         {Array.from({ length: table.maxSeats }, (_, i) => {
                                             const seatNum = i + 1
-                                            const player = seatedPlayers.find((r: any) => r.seatNumber === seatNum)
+                                            const player = seatedPlayers.find((r: Registration) => r.seatNumber === seatNum)
 
                                             // Calculate position around circle
                                             const angle = (i / table.maxSeats) * 2 * Math.PI - Math.PI / 2
@@ -98,8 +99,8 @@ export default async function SeatingChartPage({ params }: { params: Promise<{ i
                                             <h3 className="text-sm font-bold text-gray-400 mb-2">Seated Players:</h3>
                                             <div className="space-y-1 text-sm">
                                                 {seatedPlayers
-                                                    .sort((a: any, b: any) => a.seatNumber - b.seatNumber)
-                                                    .map((reg: any) => (
+                                                    .sort((a: Registration, b: Registration) => (a.seatNumber || 0) - (b.seatNumber || 0))
+                                                    .map((reg: Registration) => (
                                                         <div key={reg.id} className="flex justify-between text-gray-300">
                                                             <span>Seat {reg.seatNumber}:</span>
                                                             <span className="font-bold">{reg.player.username}</span>

@@ -12,8 +12,9 @@ export default async function UseTemplatePage({ params }: { params: Promise<{ id
         'use server'
         const name = formData.get('name') as string
         const date = formData.get('date') as string
+        const season = formData.get('season') as string
 
-        const tournamentId = await createTournamentFromTemplate(id, name, date)
+        const tournamentId = await createTournamentFromTemplate(id, name, date, season)
         redirect(`/admin/tournaments/${tournamentId}`)
     }
 
@@ -67,6 +68,18 @@ export default async function UseTemplatePage({ params }: { params: Promise<{ id
                                 className="w-full bg-gray-900 border border-gray-700 rounded p-3 text-white focus:border-amber-500 outline-none"
                             />
                         </div>
+
+                        {template.type === 'FREE' && (
+                            <div>
+                                <label className="block text-sm font-bold mb-2">Season (Optional)</label>
+                                <input
+                                    type="text"
+                                    name="season"
+                                    className="w-full bg-gray-900 border border-gray-700 rounded p-3 text-white focus:border-amber-500 outline-none"
+                                    placeholder="e.g. Winter 2024"
+                                />
+                            </div>
+                        )}
 
                         <div className="flex gap-4 pt-4">
                             <button

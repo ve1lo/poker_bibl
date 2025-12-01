@@ -109,15 +109,67 @@ bot.hears('🏆 Tournaments', async (ctx) => {
         const dateStr = new Date(t.date).toLocaleString();
         const typeStr = t.type === 'PAID' ? `💰 Buy-in: ${t.buyIn}` : '🆓 Free Ranked';
 
+        // Check if registered
+        const isRegistered = await ds.getRepository(Registration).findOne({
+            where: {
+                player: { id: (ctx as AppContext).user?.id },
+                tournament: { id: t.id }
+            }
+        });
+
+        const buttons = [];
+        if (isRegistered) {
+            buttons.push(Markup.button.callback('❌ Unregister', `leave_${t.id}`));
+        } else {
+            buttons.push(Markup.button.callback('✅ Register', `join_${t.id}`));
+        }
+
         await ctx.reply(
             `🏆 *${t.name}*\n📅 ${dateStr}\n${typeStr}\nStack: ${t.stack}`,
             {
                 parse_mode: 'Markdown',
-                ...Markup.inlineKeyboard([
-                    Markup.button.callback('✅ Register', `join_${t.id}`)
-                ])
+                ...Markup.inlineKeyboard(buttons)
             }
         );
+    }
+});
+
+// Leave Tournament
+bot.action(/leave_(\d+)/, async (ctx) => {
+    const tournamentId = parseInt(ctx.match[1]);
+    const user = (ctx as AppContext).user;
+
+    if (!user) return ctx.reply('Please register first.');
+
+    try {
+        const ds = await getDataSource();
+        const regRepo = ds.getRepository(Registration);
+        const tournamentRepo = ds.getRepository(Tournament);
+
+        const tournament = await tournamentRepo.findOne({ where: { id: tournamentId } });
+        if (!tournament) return ctx.reply('Tournament not found.');
+
+        if (tournament.status !== 'SCHEDULED') {
+            return ctx.reply('Cannot unregister from a running or finished tournament.');
+        }
+
+        const registration = await regRepo.findOne({
+            where: {
+                player: { id: user.id },
+                tournament: { id: tournamentId }
+            }
+        });
+
+        if (!registration) {
+            return ctx.reply('You are not registered for this tournament.');
+        }
+
+        await regRepo.remove(registration);
+
+        await ctx.reply('✅ You have successfully unregistered from the tournament.');
+    } catch (e) {
+        console.error(e);
+        await ctx.reply('Failed to unregister.');
     }
 });
 

@@ -1,5 +1,5 @@
 import { DataSource } from 'typeorm'
-import { Player, Tournament, TournamentLevel, Registration, GameEvent, TournamentTemplate, TemplateLevel, Table } from './entities'
+import { Player, Tournament, TournamentLevel, Registration, GameEvent, TournamentTemplate, TemplateLevel, Table, Payout, SystemSettings } from './entities'
 
 let dataSource: DataSource | null = null
 
@@ -13,7 +13,7 @@ export async function getDataSource() {
         database: process.env.DATABASE_URL?.replace('file:', '') || './poker.db',
         synchronize: true,
         logging: false,
-        entities: [Player, Tournament, TournamentLevel, Registration, GameEvent, TournamentTemplate, TemplateLevel, Table],
+        entities: [Player, Tournament, TournamentLevel, Registration, GameEvent, TournamentTemplate, TemplateLevel, Table, Payout, SystemSettings],
         subscribers: [],
         migrations: [],
     })

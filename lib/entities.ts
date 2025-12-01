@@ -99,7 +99,16 @@ export class Tournament {
     type!: string // "PAID" | "FREE"
 
     @Column({ type: 'text', default: "SCHEDULED" })
-    status!: string // "SCHEDULED" | "RUNNING" | "PAUSED" | "FINISHED"
+    status!: string // "SCHEDULED" | "RUNNING" | "PAUSED" | "FINISHED" | "BREAK"
+
+    @Column({ type: 'datetime', nullable: true })
+    breakStartTime!: Date | null
+
+    @Column({ type: 'integer', nullable: true })
+    breakDurationMinutes!: number | null
+
+    @Column({ type: 'text', nullable: true })
+    season!: string | null
 
     @Column({ type: 'integer', nullable: true })
     buyIn!: number | null
@@ -146,6 +155,9 @@ export class Tournament {
 
     @OneToMany(() => Table, (table) => table.tournament, { cascade: true })
     tables!: Table[]
+
+    @OneToMany(() => Payout, (payout) => payout.tournament, { cascade: true })
+    payouts!: Payout[]
 }
 
 @Entity()
@@ -250,4 +262,37 @@ export class GameEvent {
 
     @ManyToOne(() => Tournament, (tournament) => tournament.events, { onDelete: "CASCADE" })
     tournament!: Tournament
+}
+
+@Entity()
+export class Payout {
+    @PrimaryGeneratedColumn()
+    id!: number
+
+    @Column({ type: 'integer' })
+    amount!: number
+
+    @Column({ type: 'integer', nullable: true })
+    place!: number | null
+
+    @Column({ type: 'text', nullable: true })
+    description!: string | null
+
+    @ManyToOne(() => Tournament, (tournament) => tournament.payouts, { onDelete: "CASCADE" })
+    tournament!: Tournament
+
+    @ManyToOne(() => Player, { nullable: true })
+    player!: Player | null
+}
+
+@Entity()
+export class SystemSettings {
+    @PrimaryGeneratedColumn()
+    id!: number
+
+    @Column({ type: 'text', default: 'default' })
+    theme!: string // 'default' | 'forest' | 'ocean'
+
+    @UpdateDateColumn()
+    updatedAt!: Date
 }

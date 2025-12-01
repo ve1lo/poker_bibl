@@ -3,6 +3,15 @@
 import { useState } from 'react'
 import { movePlayer } from '@/app/actions'
 import { useRouter } from 'next/navigation'
+import { Table, Registration } from '@/lib/entities'
+
+interface MovePlayerButtonProps {
+    registrationId: number
+    playerName: string
+    currentTable: number
+    currentSeat: number
+    tables: (Table & { registrations: Registration[] })[]
+}
 
 export default function MovePlayerButton({
     registrationId,
@@ -10,13 +19,7 @@ export default function MovePlayerButton({
     currentTable,
     currentSeat,
     tables
-}: {
-    registrationId: number
-    playerName: string
-    currentTable: number
-    currentSeat: number
-    tables: any[]
-}) {
+}: MovePlayerButtonProps) {
     const [showModal, setShowModal] = useState(false)
     const [selectedTableId, setSelectedTableId] = useState<number | null>(null)
     const [selectedSeat, setSelectedSeat] = useState<number | null>(null)
@@ -27,7 +30,7 @@ export default function MovePlayerButton({
     const selectedTable = tables.find(t => t.id === selectedTableId)
     const availableSeats = selectedTable
         ? Array.from({ length: selectedTable.maxSeats }, (_, i) => i + 1).filter(seat => {
-            const isTaken = selectedTable.registrations?.some((r: any) =>
+            const isTaken = selectedTable.registrations?.some((r: Registration) =>
                 r.status === 'REGISTERED' && r.seatNumber === seat
             )
             return !isTaken
@@ -54,8 +57,9 @@ export default function MovePlayerButton({
             await movePlayer(registrationId, selectedTableId, selectedSeat)
             handleClose()
             router.refresh()
-        } catch (err: any) {
-            setError(err.message || 'Failed to move player')
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Failed to move player'
+            setError(message)
         } finally {
             setLoading(false)
         }
@@ -122,7 +126,7 @@ export default function MovePlayerButton({
                                     <option value="">Select table...</option>
                                     {tables.map(table => (
                                         <option key={table.id} value={table.id}>
-                                            Table {table.tableNumber} ({table.registrations?.filter((r: any) => r.status === 'REGISTERED').length || 0}/{table.maxSeats} seats)
+                                            Table {table.tableNumber} ({table.registrations?.filter((r: Registration) => r.status === 'REGISTERED').length || 0}/{table.maxSeats} seats)
                                         </option>
                                     ))}
                                 </select>

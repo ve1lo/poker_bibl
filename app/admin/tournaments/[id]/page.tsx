@@ -1,12 +1,13 @@
 
 import { getTournament, getPlayers, getTables } from '@/app/actions'
 import TournamentControlClient from './TournamentControlClient'
-import TournamentTimerControls from './TournamentTimerControls'
+
 import FinishTournamentButton from './FinishTournamentButton'
 import ToggleRegistrationButton from './ToggleRegistrationButton'
 import SaveAsTemplateButton from './SaveAsTemplateButton'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import { Registration } from '@/lib/entities'
 
 export default async function TournamentControlPage({ params }: { params: Promise<{ id: string }> }) {
     const { id: idStr } = await params
@@ -23,7 +24,7 @@ export default async function TournamentControlPage({ params }: { params: Promis
     const isRegistrationClosed = tournament.registrationClosed || isFinished
 
     // Sort players: active first, then by place (eliminated)
-    const sortedRegistrations = [...tournament.registrations].sort((a: any, b: any) => {
+    const sortedRegistrations = [...tournament.registrations].sort((a: Registration, b: Registration) => {
         if (a.status === 'REGISTERED' && b.status !== 'REGISTERED') return -1
         if (a.status !== 'REGISTERED' && b.status === 'REGISTERED') return 1
         if (a.place && b.place) return a.place - b.place
@@ -70,18 +71,12 @@ export default async function TournamentControlPage({ params }: { params: Promis
                     <FinishTournamentButton
                         tournamentId={id}
                         isFree={tournament.type === 'FREE'}
-                        activePlayerCount={tournament.registrations.filter((r: any) => r.status === 'REGISTERED').length}
+                        activePlayerCount={tournament.registrations.filter((r: Registration) => r.status === 'REGISTERED').length}
                     />
                 </div>
             </div>
 
-            {/* Timer Controls */}
-            <TournamentTimerControls
-                tournamentId={id}
-                status={tournament.status}
-                currentLevelIndex={tournament.currentLevelIndex}
-                totalLevels={tournament.levels.length}
-            />
+
 
             <TournamentControlClient
                 tournament={tournament}

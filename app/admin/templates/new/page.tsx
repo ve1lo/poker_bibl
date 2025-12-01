@@ -7,7 +7,15 @@ import { useState } from 'react'
 export default function NewTemplatePage() {
     const router = useRouter()
     const [type, setType] = useState<'FREE' | 'PAID'>('FREE')
-    const [levels, setLevels] = useState([
+    interface Level {
+        smallBlind: number
+        bigBlind: number
+        ante: number
+        duration: number
+        isBreak: boolean
+    }
+
+    const [levels, setLevels] = useState<Level[]>([
         { smallBlind: 25, bigBlind: 50, ante: 0, duration: 20, isBreak: false },
         { smallBlind: 50, bigBlind: 100, ante: 0, duration: 20, isBreak: false },
         { smallBlind: 100, bigBlind: 200, ante: 25, duration: 20, isBreak: false },
@@ -32,7 +40,7 @@ export default function NewTemplatePage() {
         setLevels(levels.filter((_, i) => i !== index))
     }
 
-    const updateLevel = (index: number, field: string, value: any) => {
+    const updateLevel = (index: number, field: keyof Level, value: number | boolean) => {
         const newLevels = [...levels]
         newLevels[index] = { ...newLevels[index], [field]: value }
         setLevels(newLevels)
@@ -43,11 +51,11 @@ export default function NewTemplatePage() {
         const formData = new FormData(e.currentTarget)
 
         const data = {
-            name: formData.get('name'),
-            description: formData.get('description'),
+            name: formData.get('name') as string,
+            description: formData.get('description') as string,
             type,
-            buyIn: formData.get('buyIn'),
-            stack: formData.get('stack'),
+            buyIn: formData.get('buyIn') as string,
+            stack: formData.get('stack') as string,
             levels
         }
 

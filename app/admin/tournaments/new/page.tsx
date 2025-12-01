@@ -7,7 +7,15 @@ import { useRouter } from 'next/navigation'
 export default function NewTournamentPage() {
     const router = useRouter()
     const [loading, setLoading] = useState(false)
-    const [levels, setLevels] = useState([
+    interface Level {
+        smallBlind: number
+        bigBlind: number
+        ante: number
+        duration: number
+        isBreak: boolean
+    }
+
+    const [levels, setLevels] = useState<Level[]>([
         { smallBlind: 100, bigBlind: 200, ante: 0, duration: 20, isBreak: false }
     ])
 
@@ -20,10 +28,9 @@ export default function NewTournamentPage() {
         setLevels(levels.filter((_, i) => i !== index))
     }
 
-    const updateLevel = (index: number, field: string, value: any) => {
+    const updateLevel = (index: number, field: keyof Level, value: number | boolean) => {
         const newLevels = [...levels]
-        // @ts-ignore
-        newLevels[index][field] = value
+        newLevels[index] = { ...newLevels[index], [field]: value }
         setLevels(newLevels)
     }
 
@@ -33,11 +40,12 @@ export default function NewTournamentPage() {
         const formData = new FormData(e.currentTarget)
 
         const data = {
-            name: formData.get('name'),
-            date: formData.get('date'),
-            type: formData.get('type'),
-            buyIn: formData.get('buyIn'),
-            stack: formData.get('stack'),
+            name: formData.get('name') as string,
+            date: formData.get('date') as string,
+            type: formData.get('type') as 'FREE' | 'PAID',
+            buyIn: formData.get('buyIn') as string,
+            stack: formData.get('stack') as string,
+            season: formData.get('season') as string,
             levels
         }
 
@@ -61,10 +69,38 @@ export default function NewTournamentPage() {
                     </div>
                     <div>
                         <label className="block text-sm font-bold mb-2">Type</label>
-                        <select name="type" className="w-full bg-gray-700 rounded p-2 border border-gray-600 focus:border-amber-500 outline-none">
+                        <select name="type" className="w-full bg-gray-700 rounded p-2 border border-gray-600 focus:border-amber-500 outline-none" onChange={(e) => {
+                            // Force re-render to show/hide season field
+                            const form = e.target.form
+                            if (form) {
+                                const event = new Event('change', { bubbles: true })
+                                form.dispatchEvent(event)
+                            }
+                        }}>
                             <option value="PAID">Paid (Money)</option>
                             <option value="FREE">Free (Ranked)</option>
                         </select>
+                    </div>
+                    <div className="hidden has-[:checked]:block">
+                        <input type="checkbox" className="hidden peer" checked={true} readOnly />
+                        {/* This is a hack to show/hide based on type selection without complex state */}
+                    </div>
+
+                    {/* Season field - only for FREE tournaments */}
+                    <div className="col-span-2 md:col-span-1" style={{ display: 'none' }} ref={el => {
+                        if (el && el.parentElement) {
+                            const typeSelect = el.parentElement.querySelector('select[name="type"]') as HTMLSelectElement
+                            if (typeSelect) {
+                                const updateVisibility = () => {
+                                    el.style.display = typeSelect.value === 'FREE' ? 'block' : 'none'
+                                }
+                                typeSelect.addEventListener('change', updateVisibility)
+                                updateVisibility()
+                            }
+                        }
+                    }}>
+                        <label className="block text-sm font-bold mb-2">Season (Optional)</label>
+                        <input name="season" className="w-full bg-gray-700 rounded p-2 border border-gray-600 focus:border-amber-500 outline-none" placeholder="e.g. Winter 2024" />
                     </div>
                     <div>
                         <label className="block text-sm font-bold mb-2">Starting Stack</label>
@@ -95,10 +131,10 @@ export default function NewTournamentPage() {
                         {levels.map((level, i) => (
                             <div key={i} className="grid grid-cols-6 gap-2 items-center">
                                 <div className="font-mono text-gray-500">#{i + 1}</div>
-                                <input type="number" value={level.smallBlind} onChange={e => updateLevel(i, 'smallBlind', e.target.value)} className="bg-gray-700 rounded p-1 w-full" />
-                                <input type="number" value={level.bigBlind} onChange={e => updateLevel(i, 'bigBlind', e.target.value)} className="bg-gray-700 rounded p-1 w-full" />
-                                <input type="number" value={level.ante} onChange={e => updateLevel(i, 'ante', e.target.value)} className="bg-gray-700 rounded p-1 w-full" />
-                                <input type="number" value={level.duration} onChange={e => updateLevel(i, 'duration', e.target.value)} className="bg-gray-700 rounded p-1 w-full" />
+                                <input type="number" value={level.smallBlind} onChange={e => updateLevel(i, 'smallBlind', parseInt(e.target.value) || 0)} className="bg-gray-700 rounded p-1 w-full" />
+                                <input type="number" value={level.bigBlind} onChange={e => updateLevel(i, 'bigBlind', parseInt(e.target.value) || 0)} className="bg-gray-700 rounded p-1 w-full" />
+                                <input type="number" value={level.ante} onChange={e => updateLevel(i, 'ante', parseInt(e.target.value) || 0)} className="bg-gray-700 rounded p-1 w-full" />
+                                <input type="number" value={level.duration} onChange={e => updateLevel(i, 'duration', parseInt(e.target.value) || 0)} className="bg-gray-700 rounded p-1 w-full" />
                                 <div className="flex items-center gap-2">
                                     <input type="checkbox" checked={level.isBreak} onChange={e => updateLevel(i, 'isBreak', e.target.checked)} className="w-4 h-4" />
                                     <button type="button" onClick={() => removeLevel(i)} className="text-red-500 hover:text-red-400 ml-auto">×</button>

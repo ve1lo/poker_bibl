@@ -1,8 +1,19 @@
 'use client'
 
-import { getTournament, changeLevel } from '@/app/actions'
-import { useEffect, useState, useRef } from 'react'
+import { getTournament, changeLevel, toggleTournamentStatus } from '@/app/actions'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { useParams } from 'next/navigation'
+import { Tournament } from '@/lib/entities'
+
+interface ExtendedTournament extends Tournament {
+    balancingRecommendation?: {
+        message?: string
+        action?: string
+        recommendations?: { fromTable: number, toTable: number, count: number }[]
+        assignments?: string[]
+        tableNumber?: number
+    }
+}
 
 interface DisplaySettings {
     showTimer: boolean
@@ -17,7 +28,7 @@ interface DisplaySettings {
 
 export default function DisplayPage() {
     const params = useParams()
-    const [tournament, setTournament] = useState<any>(null)
+    const [tournament, setTournament] = useState<ExtendedTournament | null>(null)
     const [timeLeft, setTimeLeft] = useState<number>(0)
     const [loading, setLoading] = useState(true)
     const [showAlert, setShowAlert] = useState(false)
@@ -39,7 +50,7 @@ export default function DisplayPage() {
         }
     }
 
-    const fetchTournament = async () => {
+    const fetchTournament = useCallback(async () => {
         try {
             const data = await getTournament(id)
 
@@ -75,20 +86,28 @@ export default function DisplayPage() {
         } finally {
             setLoading(false)
         }
-    }
+    }, [id])
 
     // Poll for data updates
     useEffect(() => {
         fetchTournament()
         const interval = setInterval(fetchTournament, 5000)
         return () => clearInterval(interval)
-    }, [id])
+    }, [fetchTournament])
 
     // Timer Logic
     useEffect(() => {
         if (!tournament) return
 
         const calculateTimeLeft = () => {
+            if (tournament.status === 'BREAK') {
+                if (!tournament.breakStartTime || !tournament.breakDurationMinutes) return 0
+                const now = new Date().getTime()
+                const start = new Date(tournament.breakStartTime).getTime()
+                const durationMs = tournament.breakDurationMinutes * 60 * 1000
+                const elapsed = now - start
+                return Math.max(0, Math.floor((durationMs - elapsed) / 1000))
+            }
             if (tournament.status === 'PAUSED') {
                 return tournament.timerSeconds || 0
             }
@@ -100,7 +119,7 @@ export default function DisplayPage() {
             if (!level) return 0
 
             const now = new Date().getTime()
-            const start = new Date(tournament.levelStartedAt).getTime()
+            const start = tournament.levelStartedAt ? new Date(tournament.levelStartedAt).getTime() : now
             const durationMs = level.duration * 60 * 1000
             const elapsed = now - start
 
@@ -124,6 +143,22 @@ export default function DisplayPage() {
                         })
                         .catch(e => {
                             console.error('Failed to auto-advance level', e)
+                            isAdvancingRef.current = false
+                        })
+                }
+            }
+
+            // Auto-resume from break if timer hits 0
+            if (remaining === 0 && tournament.status === 'BREAK') {
+                if (!isAdvancingRef.current) {
+                    isAdvancingRef.current = true
+                    console.log('Ending break...')
+                    toggleTournamentStatus(id)
+                        .then(() => {
+                            setTimeout(() => { isAdvancingRef.current = false }, 5000)
+                        })
+                        .catch(e => {
+                            console.error('Failed to end break', e)
                             isAdvancingRef.current = false
                         })
                 }
@@ -159,9 +194,9 @@ export default function DisplayPage() {
 
     const currentLevel = tournament.levels[tournament.currentLevelIndex]
     const nextLevel = tournament.levels[tournament.currentLevelIndex + 1]
-    const activePlayers = tournament.registrations.filter((r: any) => r.status === 'REGISTERED').length
+    const activePlayers = tournament.registrations.filter(r => r.status === 'REGISTERED').length
     const totalChips = tournament.registrations.length * tournament.stack +
-        tournament.registrations.reduce((acc: number, r: any) => acc + (r.rebuys * tournament.stack) + (r.addons * tournament.stack), 0)
+        tournament.registrations.reduce((acc, r) => acc + (r.rebuys * tournament.stack) + (r.addons * tournament.stack), 0)
     const avgStack = activePlayers > 0 ? Math.floor(totalChips / activePlayers) : 0
 
     const formatTime = (seconds: number) => {
@@ -183,7 +218,8 @@ export default function DisplayPage() {
                     </h1>
                     <div className={`px-6 py-2 rounded-full font-bold tracking-widest text-sm border ${tournament.status === 'RUNNING' ? 'border-green-500 text-green-400 bg-green-900/20' :
                         tournament.status === 'PAUSED' ? 'border-yellow-500 text-yellow-400 bg-yellow-900/20' :
-                            'border-gray-500 text-gray-400'
+                            tournament.status === 'BREAK' ? 'border-blue-500 text-blue-400 bg-blue-900/20' :
+                                'border-gray-500 text-gray-400'
                         }`}>
                         {tournament.status}
                     </div>
@@ -201,7 +237,9 @@ export default function DisplayPage() {
                                 <div className="text-[12rem] leading-none font-bold tabular-nums tracking-tighter drop-shadow-[0_0_30px_rgba(245,158,11,0.3)]">
                                     {formatTime(timeLeft)}
                                 </div>
-                                <div className="text-2xl text-gray-500 uppercase tracking-[0.5em] mt-4">Level {currentLevel?.levelNumber || '-'}</div>
+                                <div className="text-2xl text-gray-500 uppercase tracking-[0.5em] mt-4">
+                                    {tournament.status === 'BREAK' ? 'Break Time' : `Level ${currentLevel?.levelNumber || '-'}`}
+                                </div>
                             </div>
                         )}
 
@@ -278,13 +316,13 @@ export default function DisplayPage() {
                                 <div className="text-gray-500 text-sm uppercase tracking-widest mb-4 flex-none">Active Players</div>
                                 <div className="space-y-2 overflow-y-auto flex-1 pr-2">
                                     {tournament.registrations
-                                        .filter((r: any) => r.status === 'REGISTERED')
-                                        .sort((a: any, b: any) => {
+                                        .filter(r => r.status === 'REGISTERED')
+                                        .sort((a, b) => {
                                             const nameA = a.player.username || `${a.player.firstName} ${a.player.lastName}`
                                             const nameB = b.player.username || `${b.player.firstName} ${b.player.lastName}`
                                             return nameA.localeCompare(nameB)
                                         })
-                                        .map((reg: any) => (
+                                        .map((reg) => (
                                             <div key={reg.id} className="flex items-center justify-between py-2 px-3 bg-gray-800/50 rounded-lg">
                                                 <span className="text-white font-medium text-sm truncate">
                                                     {reg.player.username || `${reg.player.firstName} ${reg.player.lastName}`}

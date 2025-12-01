@@ -1,6 +1,7 @@
 import { getTemplates } from '@/app/actions'
 import Link from 'next/link'
 import DeleteTemplateButton from './DeleteTemplateButton'
+import { TournamentTemplate } from '@/lib/entities'
 
 export default async function TemplatesPage() {
     const templates = await getTemplates()
@@ -38,7 +39,7 @@ export default async function TemplatesPage() {
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {templates.map((template: any) => (
+                        {templates.map((template: TournamentTemplate) => (
                             <div key={template.id} className="bg-gray-800 rounded-xl border border-gray-700 p-6 hover:border-amber-500 transition-colors">
                                 <div className="flex justify-between items-start mb-4">
                                     <div>

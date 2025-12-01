@@ -3,21 +3,30 @@
 import { createTable, deleteTable, assignSeating, clearSeating, updateTable, seatPlayers, movePlayer, unseatPlayer } from '@/app/actions'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
+import { Table, Registration } from '@/lib/entities'
 
-export default function TablesSection({ tournamentId, tables, registrations, isFinished, balancingRecommendation }: {
+interface TablesSectionProps {
     tournamentId: number
-    tables: any[]
-    registrations: any[]
+    tables: (Table & { registrations: Registration[] })[]
+    registrations: Registration[]
     isFinished: boolean
-    balancingRecommendation?: any
-}) {
+    balancingRecommendation?: {
+        action: string
+        message: string
+        recommendations?: { fromTable: number, toTable: number, count: number }[]
+        assignments?: string[]
+        tableNumber?: number
+    }
+}
+
+export default function TablesSection({ tournamentId, tables, registrations, isFinished, balancingRecommendation }: TablesSectionProps) {
     const router = useRouter()
     const [loading, setLoading] = useState(false)
     const [editingTable, setEditingTable] = useState<number | null>(null)
     const [editMaxSeats, setEditMaxSeats] = useState<number>(9)
     const [selectedPlayers, setSelectedPlayers] = useState<number[]>([])
     const [dismissedRecommendation, setDismissedRecommendation] = useState(false)
-    const [draggedPlayer, setDraggedPlayer] = useState<any>(null)
+    const [draggedPlayer, setDraggedPlayer] = useState<(Registration & { currentTableId: number }) | null>(null)
     const [dragOverSeat, setDragOverSeat] = useState<{ tableId: number, seatNum: number } | null>(null)
     const [playerToUnseat, setPlayerToUnseat] = useState<number | null>(null)
 
@@ -36,8 +45,9 @@ export default function TablesSection({ tournamentId, tables, registrations, isF
             await unseatPlayer(playerToUnseat)
             setPlayerToUnseat(null)
             router.refresh()
-        } catch (error: any) {
-            alert(error.message || 'Error unseating player')
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Error unseating player'
+            alert(message)
         } finally {
             setLoading(false)
         }
@@ -54,8 +64,9 @@ export default function TablesSection({ tournamentId, tables, registrations, isF
             setLoading(true)
             await deleteTable(tableId)
             router.refresh()
-        } catch (error: any) {
-            alert(error.message || 'Error deleting table')
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Error deleting table'
+            alert(message)
         } finally {
             setLoading(false)
         }
@@ -72,8 +83,9 @@ export default function TablesSection({ tournamentId, tables, registrations, isF
             await updateTable(tableId, editMaxSeats)
             setEditingTable(null)
             router.refresh()
-        } catch (error: any) {
-            alert(error.message || 'Error updating table')
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Error updating table'
+            alert(message)
         } finally {
             setLoading(false)
         }
@@ -86,8 +98,9 @@ export default function TablesSection({ tournamentId, tables, registrations, isF
             setLoading(true)
             await assignSeating(tournamentId)
             router.refresh()
-        } catch (error: any) {
-            alert(error.message || 'Error assigning seating')
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Error assigning seating'
+            alert(message)
         } finally {
             setLoading(false)
         }
@@ -110,8 +123,9 @@ export default function TablesSection({ tournamentId, tables, registrations, isF
             await seatPlayers(tournamentId, selectedPlayers)
             setSelectedPlayers([])
             router.refresh()
-        } catch (error: any) {
-            alert(error.message || 'Error seating players')
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Error seating players'
+            alert(message)
         } finally {
             setLoading(false)
         }
@@ -125,7 +139,7 @@ export default function TablesSection({ tournamentId, tables, registrations, isF
         )
     }
 
-    const handleDragStart = (player: any, tableId: number) => {
+    const handleDragStart = (player: Registration, tableId: number) => {
         if (isFinished) return
         setDraggedPlayer({ ...player, currentTableId: tableId })
     }
@@ -152,16 +166,17 @@ export default function TablesSection({ tournamentId, tables, registrations, isF
         try {
             await movePlayer(draggedPlayer.id, targetTableId, targetSeatNum)
             router.refresh()
-        } catch (error: any) {
-            alert(error.message || 'Failed to move player')
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Failed to move player'
+            alert(message)
         } finally {
             setDraggedPlayer(null)
             setDragOverSeat(null)
         }
     }
 
-    const hasSeating = tables.some(t => t.registrations?.some((r: any) => r.seatNumber))
-    const unseatedPlayers = registrations?.filter((r: any) => r.status === 'REGISTERED' && !r.seatNumber) || []
+    const hasSeating = tables.some(t => t.registrations?.some((r: Registration) => r.seatNumber))
+    const unseatedPlayers = registrations?.filter((r: Registration) => r.status === 'REGISTERED' && !r.seatNumber) || []
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
@@ -222,8 +237,8 @@ export default function TablesSection({ tournamentId, tables, registrations, isF
                 ) : (
                     <>
                         <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 mb-8">
-                            {tables.map((table: any) => {
-                                const seatedPlayers = table.registrations?.filter((r: any) =>
+                            {tables.map((table: Table & { registrations: Registration[] }) => {
+                                const seatedPlayers = table.registrations?.filter((r: Registration) =>
                                     r.status === 'REGISTERED' && r.seatNumber
                                 ) || []
                                 const isEditing = editingTable === table.id
@@ -301,7 +316,7 @@ export default function TablesSection({ tournamentId, tables, registrations, isF
                                             {/* Seats */}
                                             {Array.from({ length: table.maxSeats }, (_, i) => {
                                                 const seatNum = i + 1
-                                                const player = seatedPlayers.find((r: any) => r.seatNumber === seatNum)
+                                                const player = seatedPlayers.find((r: Registration) => r.seatNumber === seatNum)
 
                                                 // Calculate position
                                                 const angle = (i / table.maxSeats) * 2 * Math.PI - Math.PI / 2
@@ -384,7 +399,7 @@ export default function TablesSection({ tournamentId, tables, registrations, isF
                                 if (selectedPlayers.length === unseatedPlayers.length) {
                                     setSelectedPlayers([])
                                 } else {
-                                    setSelectedPlayers(unseatedPlayers.map((r: any) => r.id))
+                                    setSelectedPlayers(unseatedPlayers.map((r: Registration) => r.id))
                                 }
                             }}
                             className="text-xs text-blue-400 hover:text-blue-300"
@@ -400,7 +415,7 @@ export default function TablesSection({ tournamentId, tables, registrations, isF
                     </div>
                 ) : (
                     <div className="space-y-2 mb-4 max-h-[600px] overflow-y-auto pr-2">
-                        {unseatedPlayers.map((reg: any) => (
+                        {unseatedPlayers.map((reg: Registration) => (
                             <label
                                 key={reg.id}
                                 className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${selectedPlayers.includes(reg.id)
@@ -446,9 +461,9 @@ export default function TablesSection({ tournamentId, tables, registrations, isF
                         >
                             <option value="">Select player to unseat...</option>
                             {tables.flatMap(t => t.registrations || [])
-                                .filter((r: any) => r.status === 'REGISTERED' && r.seatNumber)
-                                .sort((a: any, b: any) => a.player.username.localeCompare(b.player.username))
-                                .map((r: any) => (
+                                .filter((r: Registration) => r.status === 'REGISTERED' && r.seatNumber)
+                                .sort((a: Registration, b: Registration) => a.player.username.localeCompare(b.player.username))
+                                .map((r: Registration) => (
                                     <option key={r.id} value={r.id}>
                                         {r.player.username} (Table {r.table?.tableNumber}, Seat {r.seatNumber})
                                     </option>

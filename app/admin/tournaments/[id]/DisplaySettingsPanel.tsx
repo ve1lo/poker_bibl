@@ -56,8 +56,9 @@ export default function DisplaySettingsPanel({
         try {
             await updateDisplaySettings(tournamentId, newSettings)
             router.refresh()
-        } catch (error: any) {
-            alert(error.message || 'Error updating display settings')
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Error updating display settings'
+            alert(message)
             // Revert on error
             setSettings(settings)
         } finally {

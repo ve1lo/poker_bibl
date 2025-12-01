@@ -23,8 +23,9 @@ export default function TournamentTimerControls({
         try {
             await toggleTournamentStatus(tournamentId)
             router.refresh()
-        } catch (error: any) {
-            alert(error.message || 'Error toggling tournament status')
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Error toggling tournament status'
+            alert(message)
         } finally {
             setLoading(false)
         }
@@ -35,8 +36,9 @@ export default function TournamentTimerControls({
         try {
             await changeLevel(tournamentId, direction)
             router.refresh()
-        } catch (error: any) {
-            alert(error.message || 'Error changing level')
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Error changing level'
+            alert(message)
         } finally {
             setLoading(false)
         }
@@ -58,10 +60,10 @@ export default function TournamentTimerControls({
                     onClick={handleToggleStatus}
                     disabled={loading}
                     className={`px-6 py-3 rounded-lg font-bold text-lg disabled:opacity-50 transition-colors ${isScheduled
-                            ? 'bg-green-600 hover:bg-green-700 text-white'
-                            : isRunning
-                                ? 'bg-yellow-600 hover:bg-yellow-700 text-white'
-                                : 'bg-blue-600 hover:bg-blue-700 text-white'
+                        ? 'bg-green-600 hover:bg-green-700 text-white'
+                        : isRunning
+                            ? 'bg-yellow-600 hover:bg-yellow-700 text-white'
+                            : 'bg-blue-600 hover:bg-blue-700 text-white'
                         }`}
                 >
                     {isScheduled ? '▶️ Start Tournament' : isRunning ? '⏸️ Pause' : '▶️ Resume'}

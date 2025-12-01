@@ -3,16 +3,19 @@
 import { useState, useRef, useEffect } from 'react'
 import { registerPlayer, createPlayer } from '@/app/actions'
 import { useRouter } from 'next/navigation'
+import { Player } from '@/lib/entities'
+
+interface AddPlayerFormProps {
+    tournamentId: number
+    allPlayers: Player[]
+    registeredPlayerIds: number[]
+}
 
 export default function AddPlayerForm({
     tournamentId,
     allPlayers,
     registeredPlayerIds
-}: {
-    tournamentId: number
-    allPlayers: any[]
-    registeredPlayerIds: number[]
-}) {
+}: AddPlayerFormProps) {
     const [searchQuery, setSearchQuery] = useState("")
     const [selectedPlayerId, setSelectedPlayerId] = useState<number | null>(null)
     const [showDropdown, setShowDropdown] = useState(false)
@@ -44,7 +47,7 @@ export default function AddPlayerForm({
         return () => document.removeEventListener('mousedown', handleClickOutside)
     }, [])
 
-    const handleSelectPlayer = (player: any) => {
+    const handleSelectPlayer = (player: Player) => {
         setSelectedPlayerId(player.id)
         setSearchQuery(`${player.firstName} ${player.lastName}`)
         setShowDropdown(false)
@@ -92,6 +95,7 @@ export default function AddPlayerForm({
                 <form onSubmit={handleSubmit} className="flex gap-2">
                     <div className="relative">
                         <input
+                            suppressHydrationWarning
                             type="text"
                             value={searchQuery}
                             onChange={(e) => {
@@ -107,7 +111,7 @@ export default function AddPlayerForm({
                         {showDropdown && searchQuery && (
                             <div className="absolute top-full left-0 mt-1 w-full bg-gray-700 border border-gray-600 rounded shadow-lg max-h-60 overflow-y-auto z-50">
                                 {filteredPlayers.length > 0 ? (
-                                    filteredPlayers.map((p: any) => (
+                                    filteredPlayers.map((p: Player) => (
                                         <button
                                             key={p.id}
                                             type="button"
@@ -119,7 +123,7 @@ export default function AddPlayerForm({
                                     ))
                                 ) : (
                                     <div className="px-3 py-2 text-gray-400 text-sm">
-                                        No players found. Click "Add" to create new.
+                                        No players found. Click &quot;Add&quot; to create new.
                                     </div>
                                 )}
                             </div>

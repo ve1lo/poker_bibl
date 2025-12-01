@@ -1,7 +1,7 @@
 'use server'
 
 import { getDataSource } from '@/lib/data-source'
-import { Tournament, Player, Registration, TournamentLevel, TournamentTemplate, TemplateLevel, Table } from '@/lib/entities'
+import { Tournament, Player, Registration, TournamentLevel, TournamentTemplate, TemplateLevel, Table, Payout, SystemSettings } from '@/lib/entities'
 import { revalidatePath } from 'next/cache'
 import { calculatePoints } from '@/lib/points'
 import { Not, IsNull } from 'typeorm'
@@ -17,32 +17,51 @@ export async function getTournaments() {
 
     // Map to match the shape expected by the UI (with _count)
     const plainTournaments = JSON.parse(JSON.stringify(tournaments))
-    return plainTournaments.map((t: any) => ({
+    return plainTournaments.map((t: Tournament & { registrations: Registration[] }) => ({
         ...t,
         _count: { registrations: t.registrations.length }
     }))
 }
 
-export async function createTournament(data: any) {
+interface LevelData {
+    smallBlind: string | number
+    bigBlind: string | number
+    ante: string | number
+    duration: string | number
+    isBreak: boolean
+}
+
+interface CreateTournamentData {
+    name: string
+    date: string
+    type: 'FREE' | 'PAID'
+    buyIn: string
+    stack: string
+    levels: LevelData[]
+    season?: string
+}
+
+export async function createTournament(data: CreateTournamentData) {
     const ds = await getDataSource()
-    const { name, date, type, buyIn, stack, levels } = data
+    const { name, date, type, buyIn, stack, levels, season } = data
 
     const tournament = new Tournament()
     tournament.name = name
     tournament.date = new Date(date)
     tournament.type = type
+    tournament.season = season || null
     const parsedBuyIn = parseInt(buyIn)
     tournament.buyIn = !isNaN(parsedBuyIn) ? parsedBuyIn : null
     const parsedStack = parseInt(stack)
     tournament.stack = !isNaN(parsedStack) ? parsedStack : 0
 
-    tournament.levels = levels.map((l: any, index: number) => {
+    tournament.levels = levels.map((l: LevelData, index: number) => {
         const level = new TournamentLevel()
         level.levelNumber = index + 1
-        level.smallBlind = parseInt(l.smallBlind) || 0
-        level.bigBlind = parseInt(l.bigBlind) || 0
-        level.ante = parseInt(l.ante || 0) || 0
-        level.duration = parseInt(l.duration) || 0
+        level.smallBlind = parseInt(l.smallBlind.toString()) || 0
+        level.bigBlind = parseInt(l.bigBlind.toString()) || 0
+        level.ante = parseInt((l.ante || 0).toString()) || 0
+        level.duration = parseInt(l.duration.toString()) || 0
         level.isBreak = l.isBreak || false
         return level
     })
@@ -60,12 +79,12 @@ export async function getTournament(id: number) {
         relations: {
             levels: true,
             registrations: { player: true },
-            events: true
+            events: true,
+            payouts: { player: true }
         },
         order: {
             levels: { levelNumber: 'ASC' },
             events: { timestamp: 'DESC' }
-            // Sorting registrations by points/place needs to be done in JS or QueryBuilder
         }
     })
 
@@ -117,7 +136,7 @@ export async function toggleTournamentStatus(id: number) {
         t.status = 'PAUSED'
         t.timerPausedAt = now
         t.timerSeconds = remaining
-    } else if (t.status === 'PAUSED') {
+    } else if (t.status === 'PAUSED' || t.status === 'BREAK') {
         // Resume
         const level = t.levels[t.currentLevelIndex]
         const durationSec = level.duration * 60
@@ -128,7 +147,35 @@ export async function toggleTournamentStatus(id: number) {
         t.levelStartedAt = newStartedAt
         t.timerPausedAt = null
         t.timerSeconds = null
+        t.breakStartTime = null
+        t.breakDurationMinutes = null
     }
+
+    await repo.save(t)
+    revalidatePath(`/admin/tournaments/${id}`)
+    revalidatePath(`/display/${id}`)
+}
+
+export async function startBreak(id: number, durationMinutes: number) {
+    const ds = await getDataSource()
+    const repo = ds.getRepository(Tournament)
+
+    const t = await repo.findOne({ where: { id }, relations: { levels: true } })
+    if (!t) throw new Error("Tournament not found")
+
+    if (t.status !== 'RUNNING') return
+
+    const now = new Date()
+    const level = t.levels[t.currentLevelIndex]
+    const elapsedSec = Math.floor((now.getTime() - (t.levelStartedAt?.getTime() || now.getTime())) / 1000)
+    const durationSec = level.duration * 60
+    const remaining = Math.max(0, durationSec - elapsedSec)
+
+    t.status = 'BREAK'
+    t.timerPausedAt = now
+    t.timerSeconds = remaining
+    t.breakStartTime = now
+    t.breakDurationMinutes = durationMinutes
 
     await repo.save(t)
     revalidatePath(`/admin/tournaments/${id}`)
@@ -209,7 +256,46 @@ export async function toggleRegistration(id: number) {
     revalidatePath(`/admin/tournaments/${id}`)
 }
 
-export async function updateDisplaySettings(id: number, settings: any) {
+export async function updateTournamentLevels(id: number, levels: LevelData[]) {
+    const ds = await getDataSource()
+    const repo = ds.getRepository(Tournament)
+    const levelRepo = ds.getRepository(TournamentLevel)
+
+    const t = await repo.findOne({ where: { id }, relations: { levels: true } })
+    if (!t) throw new Error("Tournament not found")
+
+    // Delete existing levels
+    await levelRepo.remove(t.levels)
+
+    // Create new levels
+    t.levels = levels.map((l: LevelData, index: number) => {
+        const level = new TournamentLevel()
+        level.levelNumber = index + 1
+        level.smallBlind = parseInt(l.smallBlind.toString()) || 0
+        level.bigBlind = parseInt(l.bigBlind.toString()) || 0
+        level.ante = parseInt((l.ante || 0).toString()) || 0
+        level.duration = parseInt(l.duration.toString()) || 0
+        level.isBreak = l.isBreak || false
+        return level
+    })
+
+    await repo.save(t)
+    revalidatePath(`/admin/tournaments/${id}`)
+    revalidatePath(`/display/${id}`)
+}
+
+interface DisplaySettings {
+    showTimer: boolean
+    showBlinds: boolean
+    showNextLevel: boolean
+    showPlayersLeft: boolean
+    showAvgStack: boolean
+    showTotalChips: boolean
+    showPlayersList: boolean
+    showAnte: boolean
+}
+
+export async function updateDisplaySettings(id: number, settings: DisplaySettings) {
     const ds = await getDataSource()
     const repo = ds.getRepository(Tournament)
 
@@ -229,7 +315,10 @@ export async function eliminatePlayer(registrationId: number, bountyCount: numbe
 
     const reg = await regRepo.findOne({
         where: { id: registrationId },
-        relations: { tournament: { registrations: true } }
+        relations: {
+            tournament: { registrations: true, payouts: true },
+            player: true
+        }
     })
 
     if (!reg) return
@@ -253,6 +342,14 @@ export async function eliminatePlayer(registrationId: number, bountyCount: numbe
     reg.table = null
 
     await regRepo.save(reg)
+
+    // Auto-assign payout
+    const payout = reg.tournament.payouts.find(p => p.place === place)
+    if (payout) {
+        const payoutRepo = ds.getRepository(Payout)
+        payout.player = reg.player
+        await payoutRepo.save(payout)
+    }
 
     // Auto-level up for FREE tournaments
     if (reg.tournament.type === 'FREE') {
@@ -302,9 +399,6 @@ async function checkAndBalanceTables(tournamentId: number) {
         maxSeats: table.maxSeats,
         activePlayers: table.registrations.filter(r => r.status === 'REGISTERED').length
     }))
-
-    const totalActivePlayers = tableStats.reduce((sum, t) => sum + t.activePlayers, 0)
-    const totalTables = tables.length
 
     // Check if we can break the last table
     const lastTable = tableStats[tableStats.length - 1]
@@ -370,7 +464,7 @@ async function checkAndBalanceTables(tournamentId: number) {
 
     // If difference is more than 1, recommend balancing
     if (maxPlayers - minPlayers > 1) {
-        const recommendations: any[] = []
+        const recommendations: { fromTable: number, toTable: number, count: number }[] = []
 
         // Find tables with max and min players
         const fullestTables = tableStats.filter(t => t.activePlayers === maxPlayers)
@@ -410,12 +504,34 @@ export async function rebuyPlayer(registrationId: number) {
     revalidatePath(`/admin/tournaments`)
 }
 
+export async function removePlayerFromTournament(registrationId: number) {
+    const ds = await getDataSource()
+    const regRepo = ds.getRepository(Registration)
+
+    const reg = await regRepo.findOne({
+        where: { id: registrationId },
+        relations: { tournament: true }
+    })
+
+    if (!reg) return
+
+    const tournamentId = reg.tournament.id
+
+    // Only allow removal if tournament is SCHEDULED or RUNNING (maybe just registered status?)
+    // The user said "if person didn't show up", implying they might be registered but not seated or just seated but absent.
+    // Safest is to just remove the registration.
+
+    await regRepo.remove(reg)
+
+    revalidatePath(`/admin/tournaments/${tournamentId}`)
+    revalidatePath(`/display/${tournamentId}`)
+}
+
 export async function registerPlayer(tournamentId: number, playerId: number) {
     const ds = await getDataSource()
     const regRepo = ds.getRepository(Registration)
     const tRepo = ds.getRepository(Tournament)
     const pRepo = ds.getRepository(Player)
-    const tableRepo = ds.getRepository(Table)
 
     const tournament = await tRepo.findOne({ where: { id: tournamentId } })
     const player = await pRepo.findOne({ where: { id: playerId } })
@@ -450,7 +566,7 @@ export async function registerPlayer(tournamentId: number, playerId: number) {
     const seatedPlayers = await regRepo.count({
         where: {
             tournament: { id: tournamentId },
-            table: { id: Not(null as any) }
+            table: { id: Not(IsNull()) }
         }
     })
 
@@ -520,6 +636,245 @@ export async function getStatistics() {
     }
 }
 
+export async function getRankedStatistics(season?: string) {
+    const ds = await getDataSource()
+
+    // Get all FREE tournaments, optionally filtered by season
+    const tournamentQuery = ds.getRepository(Tournament)
+        .createQueryBuilder("tournament")
+        .where("tournament.type = :type", { type: "FREE" })
+        .andWhere("tournament.status = :status", { status: "FINISHED" })
+        .orderBy("tournament.date", "ASC")
+
+    if (season) {
+        tournamentQuery.andWhere("tournament.season = :season", { season })
+    }
+
+    const tournaments = await tournamentQuery.getMany()
+
+    if (tournaments.length === 0) {
+        return { tournaments: [], stats: [] }
+    }
+
+    // Get all registrations for these tournaments
+    const registrations = await ds.getRepository(Registration)
+        .createQueryBuilder("reg")
+        .leftJoinAndSelect("reg.player", "player")
+        .leftJoinAndSelect("reg.tournament", "tournament")
+        .where("tournament.id IN (:...ids)", { ids: tournaments.map(t => t.id) })
+        .getMany()
+
+    // Process data into pivot format
+    interface RankedPlayerStats {
+        id: number
+        name: string
+        totalPoints: number
+        gamesPlayed: number
+        results: Record<number, {
+            points: number
+            place: number | null
+            bounty: number
+        }>
+    }
+
+    const playerStats = new Map<number, RankedPlayerStats>()
+
+    registrations.forEach(reg => {
+        const playerId = reg.player.id
+        if (!playerStats.has(playerId)) {
+            playerStats.set(playerId, {
+                id: playerId,
+                name: reg.player.firstName + ' ' + (reg.player.lastName || ''),
+                totalPoints: 0,
+                gamesPlayed: 0,
+                results: {}
+            })
+        }
+
+        const stats = playerStats.get(playerId)!
+        stats.totalPoints += (reg.points || 0)
+        stats.gamesPlayed += 1
+        stats.results[reg.tournament.id] = {
+            points: reg.points || 0,
+            place: reg.place,
+            bounty: reg.bountyCount
+        }
+    })
+
+    // Convert map to array and sort by total points
+    const stats = Array.from(playerStats.values()).sort((a, b) => b.totalPoints - a.totalPoints)
+
+    return {
+        tournaments: tournaments.map(t => ({ id: t.id, name: t.name, date: t.date })),
+        stats
+    }
+}
+
+export async function getPaidStatistics() {
+    const ds = await getDataSource()
+
+    // Get all PAID tournaments
+    const tournaments = await ds.getRepository(Tournament)
+        .createQueryBuilder("tournament")
+        .where("tournament.type = :type", { type: "PAID" })
+        .andWhere("tournament.status = :status", { status: "FINISHED" })
+        .orderBy("tournament.date", "ASC")
+        .getMany()
+
+    if (tournaments.length === 0) {
+        return { tournaments: [], stats: [] }
+    }
+
+    const tournamentIds = tournaments.map(t => t.id)
+
+    // Get all registrations to know who played
+    const registrations = await ds.getRepository(Registration)
+        .createQueryBuilder("reg")
+        .leftJoinAndSelect("reg.player", "player")
+        .leftJoinAndSelect("reg.tournament", "tournament")
+        .where("tournament.id IN (:...ids)", { ids: tournamentIds })
+        .getMany()
+
+    // Get all payouts to know who won money
+    const payouts = await ds.getRepository(Payout)
+        .createQueryBuilder("payout")
+        .leftJoinAndSelect("payout.player", "player")
+        .leftJoinAndSelect("payout.tournament", "tournament")
+        .where("tournament.id IN (:...ids)", { ids: tournamentIds })
+        .andWhere("payout.player IS NOT NULL")
+        .getMany()
+
+    // Process data
+    interface PaidPlayerStats {
+        id: number
+        name: string
+        totalWinnings: number
+        gamesPlayed: number
+        results: Record<number, {
+            amount: number
+            place: number | null
+            isPaid: boolean
+        }>
+    }
+
+    const playerStats = new Map<number, PaidPlayerStats>()
+
+    // Initialize with registrations (games played)
+    registrations.forEach(reg => {
+        const playerId = reg.player.id
+        if (!playerStats.has(playerId)) {
+            playerStats.set(playerId, {
+                id: playerId,
+                name: reg.player.firstName + ' ' + (reg.player.lastName || ''),
+                totalWinnings: 0,
+                gamesPlayed: 0,
+                results: {}
+            })
+        }
+
+        const stats = playerStats.get(playerId)!
+        stats.gamesPlayed += 1
+        // Initialize result for this tournament
+        stats.results[reg.tournament.id] = {
+            amount: 0,
+            place: reg.place,
+            isPaid: false
+        }
+    })
+
+    // Add payout data
+    payouts.forEach(payout => {
+        if (!payout.player) return
+        const playerId = payout.player.id
+
+        // Player should exist from registrations, but safety check
+        if (!playerStats.has(playerId)) {
+            // This could happen if a player was assigned a payout but not registered? 
+            // Unlikely in current flow but possible if data is manually edited.
+            // We'll skip or add them? Let's add them.
+            playerStats.set(playerId, {
+                id: playerId,
+                name: payout.player.firstName + ' ' + (payout.player.lastName || ''),
+                totalWinnings: 0,
+                gamesPlayed: 0, // Didn't register properly?
+                results: {}
+            })
+        }
+
+        const stats = playerStats.get(playerId)!
+        stats.totalWinnings += payout.amount
+
+        if (!stats.results[payout.tournament.id]) {
+            stats.results[payout.tournament.id] = {
+                amount: 0,
+                place: payout.place,
+                isPaid: false
+            }
+        }
+
+        stats.results[payout.tournament.id].amount = payout.amount
+        stats.results[payout.tournament.id].isPaid = true
+        // If place was missing in registration but present in payout, update it?
+        if (!stats.results[payout.tournament.id].place && payout.place) {
+            stats.results[payout.tournament.id].place = payout.place
+        }
+    })
+
+    // Convert map to array and sort by total winnings
+    const stats = Array.from(playerStats.values()).sort((a, b) => b.totalWinnings - a.totalWinnings)
+
+    return {
+        tournaments: tournaments.map(t => ({ id: t.id, name: t.name, date: t.date })),
+        stats
+    }
+}
+
+export async function getSeasons() {
+    const ds = await getDataSource()
+    const result = await ds.getRepository(Tournament)
+        .createQueryBuilder("tournament")
+        .select("DISTINCT season")
+        .where("season IS NOT NULL")
+        .orderBy("season", "DESC")
+        .getRawMany()
+
+    return result.map(r => r.season)
+}
+
+export async function registerRebuy(registrationId: number) {
+    const ds = await getDataSource()
+    const regRepo = ds.getRepository(Registration)
+
+    const reg = await regRepo.findOne({
+        where: { id: registrationId },
+        relations: { tournament: true }
+    })
+
+    if (!reg) return
+
+    reg.rebuys += 1
+    await regRepo.save(reg)
+
+    revalidatePath(`/admin/tournaments/${reg.tournament.id}`)
+}
+
+export async function registerAddon(registrationId: number) {
+    const ds = await getDataSource()
+    const regRepo = ds.getRepository(Registration)
+
+    const reg = await regRepo.findOne({
+        where: { id: registrationId },
+        relations: { tournament: true }
+    })
+
+    if (!reg) return
+
+    reg.addons += 1
+    await regRepo.save(reg)
+
+    revalidatePath(`/admin/tournaments/${reg.tournament.id}`)
+}
+
 // Tournament Template Actions
 
 export async function getTemplates() {
@@ -547,7 +902,16 @@ export async function getTemplate(id: number) {
     return JSON.parse(JSON.stringify(template))
 }
 
-export async function createTemplate(data: any) {
+interface CreateTemplateData {
+    name: string
+    description?: string
+    type: 'FREE' | 'PAID'
+    buyIn: string
+    stack: string
+    levels: LevelData[]
+}
+
+export async function createTemplate(data: CreateTemplateData) {
     const ds = await getDataSource()
     const { name, description, type, buyIn, stack, levels } = data
 
@@ -560,13 +924,13 @@ export async function createTemplate(data: any) {
     const parsedStack = parseInt(stack)
     template.stack = !isNaN(parsedStack) ? parsedStack : 0
 
-    template.levels = levels.map((l: any, index: number) => {
+    template.levels = levels.map((l: LevelData, index: number) => {
         const level = new TemplateLevel()
         level.levelNumber = index + 1
-        level.smallBlind = parseInt(l.smallBlind) || 0
-        level.bigBlind = parseInt(l.bigBlind) || 0
-        level.ante = parseInt(l.ante || 0) || 0
-        level.duration = parseInt(l.duration) || 0
+        level.smallBlind = parseInt(l.smallBlind.toString()) || 0
+        level.bigBlind = parseInt(l.bigBlind.toString()) || 0
+        level.ante = parseInt((l.ante || 0).toString()) || 0
+        level.duration = parseInt(l.duration.toString()) || 0
         level.isBreak = l.isBreak || false
         return level
     })
@@ -583,7 +947,7 @@ export async function deleteTemplate(id: number) {
     revalidatePath('/admin/templates')
 }
 
-export async function createTournamentFromTemplate(templateId: number, name: string, date: string) {
+export async function createTournamentFromTemplate(templateId: number, name: string, date: string, season?: string) {
     const ds = await getDataSource()
     const templateRepo = ds.getRepository(TournamentTemplate)
 
@@ -598,6 +962,7 @@ export async function createTournamentFromTemplate(templateId: number, name: str
     tournament.name = name
     tournament.date = new Date(date)
     tournament.type = template.type
+    tournament.season = season || null
     tournament.buyIn = template.buyIn
     tournament.stack = template.stack
 
@@ -617,7 +982,7 @@ export async function createTournamentFromTemplate(templateId: number, name: str
     return tournament.id
 }
 
-export async function updateTemplate(id: number, data: any) {
+export async function updateTemplate(id: number, data: CreateTemplateData) {
     const ds = await getDataSource()
     const templateRepo = ds.getRepository(TournamentTemplate)
     const levelRepo = ds.getRepository(TemplateLevel)
@@ -642,13 +1007,13 @@ export async function updateTemplate(id: number, data: any) {
     await levelRepo.delete({ template: { id } })
 
     // Create new levels
-    template.levels = data.levels.map((l: any, index: number) => {
+    template.levels = data.levels.map((l: LevelData, index: number) => {
         const level = new TemplateLevel()
         level.levelNumber = index + 1
-        level.smallBlind = parseInt(l.smallBlind) || 0
-        level.bigBlind = parseInt(l.bigBlind) || 0
-        level.ante = parseInt(l.ante || 0) || 0
-        level.duration = parseInt(l.duration) || 0
+        level.smallBlind = parseInt(l.smallBlind.toString()) || 0
+        level.bigBlind = parseInt(l.bigBlind.toString()) || 0
+        level.ante = parseInt((l.ante || 0).toString()) || 0
+        level.duration = parseInt(l.duration.toString()) || 0
         level.isBreak = l.isBreak || false
         return level
     })
@@ -819,10 +1184,15 @@ export async function movePlayer(registrationId: number, targetTableId: number, 
     revalidatePath(`/admin/tournaments/${registration.tournament.id}`)
 }
 
-export async function applyBreakTableRecommendation(tournamentId: number, recommendation: any) {
+interface BalancingRecommendation {
+    moves?: Array<{ registrationId: number, targetTableId: number, targetSeat: number }>
+    tableId?: number
+}
+
+export async function applyBreakTableRecommendation(tournamentId: number, recommendation: BalancingRecommendation) {
     // Expect recommendation to contain moves array and tableId
-    const moves: Array<{ registrationId: number, targetTableId: number, targetSeat: number }> = recommendation.moves || [];
-    const tableId: number = recommendation.tableId;
+    const moves = recommendation.moves || [];
+    const tableId = recommendation.tableId;
 
     // Perform all moves sequentially
     for (const move of moves) {
@@ -1052,3 +1422,41 @@ export async function seatPlayers(tournamentId: number, registrationIds: number[
     revalidatePath(`/admin/tournaments/${tournamentId}`)
     revalidatePath(`/admin/tournaments/${tournamentId}/seating`)
 }
+
+// System Settings Actions
+
+export async function getSystemSettings() {
+    const ds = await getDataSource()
+    const repo = ds.getRepository(SystemSettings)
+
+    let settings = await repo.findOne({ where: { id: 1 } })
+
+    if (!settings) {
+        settings = new SystemSettings()
+        settings.id = 1
+        settings.theme = 'default'
+        await repo.save(settings)
+    }
+
+    return JSON.parse(JSON.stringify(settings))
+}
+
+export async function updateSystemSettings(theme: string) {
+    const ds = await getDataSource()
+    const repo = ds.getRepository(SystemSettings)
+
+    let settings = await repo.findOne({ where: { id: 1 } })
+
+    if (!settings) {
+        settings = new SystemSettings()
+        settings.id = 1
+    }
+
+    settings.theme = theme
+    await repo.save(settings)
+
+    revalidatePath('/')
+    revalidatePath('/admin')
+}
+
+
