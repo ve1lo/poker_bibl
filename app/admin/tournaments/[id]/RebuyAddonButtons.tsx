@@ -5,11 +5,9 @@ import { registerRebuy, registerAddon } from '@/app/actions'
 
 interface RebuyAddonButtonsProps {
     registrationId: number
-    rebuys: number
-    addons: number
 }
 
-export default function RebuyAddonButtons({ registrationId, rebuys, addons }: RebuyAddonButtonsProps) {
+export default function RebuyAddonButtons({ registrationId }: RebuyAddonButtonsProps) {
     const [loading, setLoading] = useState(false)
 
     const handleRebuy = async () => {

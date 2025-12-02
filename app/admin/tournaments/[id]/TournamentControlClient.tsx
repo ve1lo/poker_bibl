@@ -4,8 +4,6 @@ import { useState } from 'react'
 import {
     toggleTournamentStatus,
     changeLevel,
-    finishTournament,
-    toggleRegistration,
     startBreak
 } from '@/app/actions'
 import EliminatePlayerButton from './EliminatePlayerButton'
@@ -133,8 +131,6 @@ export default function TournamentControlClient({
                                             {tournament.type === 'PAID' && reg.status === 'REGISTERED' && (
                                                 <RebuyAddonButtons
                                                     registrationId={reg.id}
-                                                    rebuys={reg.rebuys}
-                                                    addons={reg.addons}
                                                 />
                                             )}
                                             {reg.status === 'REGISTERED' && (

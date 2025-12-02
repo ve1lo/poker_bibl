@@ -1,7 +1,7 @@
 
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany, ManyToOne, Unique } from "typeorm"
 
-@Entity()
+@Entity('Player')
 export class Player {
     @PrimaryGeneratedColumn()
     id!: number
@@ -29,7 +29,7 @@ export class Player {
 }
 
 // Tournament Template Entities
-@Entity()
+@Entity('TournamentTemplate')
 export class TournamentTemplate {
     @PrimaryGeneratedColumn()
     id!: number
@@ -56,7 +56,7 @@ export class TournamentTemplate {
     levels!: TemplateLevel[]
 }
 
-@Entity()
+@Entity('TemplateLevel')
 export class TemplateLevel {
     @PrimaryGeneratedColumn()
     id!: number
@@ -84,7 +84,7 @@ export class TemplateLevel {
 }
 
 // Tournament Entity
-@Entity()
+@Entity('Tournament')
 export class Tournament {
     @PrimaryGeneratedColumn()
     id!: number
@@ -160,7 +160,7 @@ export class Tournament {
     payouts!: Payout[]
 }
 
-@Entity()
+@Entity('TournamentLevel')
 export class TournamentLevel {
     @PrimaryGeneratedColumn()
     id!: number
@@ -188,7 +188,7 @@ export class TournamentLevel {
 }
 
 // Table Entity
-@Entity()
+@Entity('Table')
 export class Table {
     @PrimaryGeneratedColumn()
     id!: number
@@ -206,7 +206,7 @@ export class Table {
     registrations!: Registration[]
 }
 
-@Entity()
+@Entity('Registration')
 @Unique(["player", "tournament"])
 export class Registration {
     @PrimaryGeneratedColumn()
@@ -246,7 +246,7 @@ export class Registration {
     table!: Table | null
 }
 
-@Entity()
+@Entity('GameEvent')
 export class GameEvent {
     @PrimaryGeneratedColumn()
     id!: number
@@ -264,7 +264,7 @@ export class GameEvent {
     tournament!: Tournament
 }
 
-@Entity()
+@Entity('Payout')
 export class Payout {
     @PrimaryGeneratedColumn()
     id!: number
@@ -285,7 +285,7 @@ export class Payout {
     player!: Player | null
 }
 
-@Entity()
+@Entity('SystemSettings')
 export class SystemSettings {
     @PrimaryGeneratedColumn()
     id!: number

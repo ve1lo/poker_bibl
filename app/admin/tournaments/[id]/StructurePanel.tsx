@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Tournament, TournamentLevel } from '@/lib/entities'
+import { Tournament } from '@/lib/entities'
 import { updateTournamentLevels } from '@/app/actions'
 
 interface StructurePanelProps {

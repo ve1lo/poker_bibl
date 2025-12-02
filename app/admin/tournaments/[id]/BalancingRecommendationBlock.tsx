@@ -1,3 +1,5 @@
+'use client'
+
 import { useState, useEffect } from 'react'
 import { useBalancing } from './BalancingProvider'
 import { applyBreakTableRecommendation } from '@/app/actions'

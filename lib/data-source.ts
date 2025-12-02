@@ -1,3 +1,4 @@
+import "reflect-metadata"
 import { DataSource } from 'typeorm'
 import { Player, Tournament, TournamentLevel, Registration, GameEvent, TournamentTemplate, TemplateLevel, Table, Payout, SystemSettings } from './entities'
 
@@ -8,10 +9,13 @@ export async function getDataSource() {
         return dataSource
     }
 
+    const isProduction = process.env.NODE_ENV === 'production'
+    console.log('getDataSource: NODE_ENV=', process.env.NODE_ENV, 'isProduction=', isProduction)
+
     dataSource = new DataSource({
         type: 'better-sqlite3',
-        database: process.env.DATABASE_URL?.replace('file:', '') || './poker.db',
-        synchronize: true,
+        database: './poker-build.db',
+        synchronize: false,
         logging: false,
         entities: [Player, Tournament, TournamentLevel, Registration, GameEvent, TournamentTemplate, TemplateLevel, Table, Payout, SystemSettings],
         subscribers: [],
