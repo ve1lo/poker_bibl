@@ -3,6 +3,9 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   serverExternalPackages: ['typeorm', 'better-sqlite3'],
   webpack: (config, { isServer }) => {
+    if (isServer) {
+      config.optimization.minimize = false;
+    }
     if (!isServer) {
       config.resolve.fallback = {
         ...config.resolve.fallback,

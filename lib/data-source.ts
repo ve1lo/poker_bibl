@@ -11,6 +11,7 @@ export async function getDataSource() {
 
     const isProduction = process.env.NODE_ENV === 'production'
     console.log('getDataSource: NODE_ENV=', process.env.NODE_ENV, 'isProduction=', isProduction)
+    console.log('Entity names:', [Player, Tournament].map(e => e.name))
 
     dataSource = new DataSource({
         type: 'better-sqlite3',

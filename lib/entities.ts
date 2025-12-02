@@ -1,4 +1,5 @@
 
+import "reflect-metadata"
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany, ManyToOne, Unique } from "typeorm"
 
 @Entity('Player')
