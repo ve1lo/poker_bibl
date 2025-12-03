@@ -8,7 +8,7 @@ import { Not, IsNull } from 'typeorm'
 
 export async function getTournaments() {
     const ds = await getDataSource()
-    const repo = ds.getRepository(Tournament)
+    const repo = ds.getRepository<Tournament>('Tournament')
 
     const tournaments = await repo.find({
         order: { date: 'DESC' },
@@ -72,7 +72,7 @@ export async function createTournament(data: CreateTournamentData) {
 
 export async function getTournament(id: number) {
     const ds = await getDataSource()
-    const repo = ds.getRepository(Tournament)
+    const repo = ds.getRepository<Tournament>('Tournament')
 
     const tournament = await repo.findOne({
         where: { id },
@@ -105,7 +105,7 @@ export async function getTournament(id: number) {
 
 export async function getPlayers() {
     const ds = await getDataSource()
-    const players = await ds.getRepository(Player).find({
+    const players = await ds.getRepository<Player>('Player').find({
         order: { firstName: 'ASC' }
     })
     return JSON.parse(JSON.stringify(players))
@@ -115,7 +115,7 @@ export async function getPlayers() {
 
 export async function toggleTournamentStatus(id: number) {
     const ds = await getDataSource()
-    const repo = ds.getRepository(Tournament)
+    const repo = ds.getRepository<Tournament>('Tournament')
 
     const t = await repo.findOne({ where: { id }, relations: { levels: true } })
     if (!t) throw new Error("Tournament not found")
@@ -158,7 +158,7 @@ export async function toggleTournamentStatus(id: number) {
 
 export async function startBreak(id: number, durationMinutes: number) {
     const ds = await getDataSource()
-    const repo = ds.getRepository(Tournament)
+    const repo = ds.getRepository<Tournament>('Tournament')
 
     const t = await repo.findOne({ where: { id }, relations: { levels: true } })
     if (!t) throw new Error("Tournament not found")
@@ -184,7 +184,7 @@ export async function startBreak(id: number, durationMinutes: number) {
 
 export async function changeLevel(id: number, direction: 'next' | 'prev') {
     const ds = await getDataSource()
-    const repo = ds.getRepository(Tournament)
+    const repo = ds.getRepository<Tournament>('Tournament')
 
     const t = await repo.findOne({ where: { id } })
     if (!t) return
@@ -205,8 +205,8 @@ export async function changeLevel(id: number, direction: 'next' | 'prev') {
 
 export async function finishTournament(id: number, winnerBountyCount?: number) {
     const ds = await getDataSource()
-    const repo = ds.getRepository(Tournament)
-    const regRepo = ds.getRepository(Registration)
+    const repo = ds.getRepository<Tournament>('Tournament')
+    const regRepo = ds.getRepository<Registration>('Registration')
 
     const t = await repo.findOne({
         where: { id },
@@ -245,7 +245,7 @@ export async function finishTournament(id: number, winnerBountyCount?: number) {
 
 export async function toggleRegistration(id: number) {
     const ds = await getDataSource()
-    const repo = ds.getRepository(Tournament)
+    const repo = ds.getRepository<Tournament>('Tournament')
 
     const t = await repo.findOne({ where: { id } })
     if (!t) return
@@ -258,8 +258,8 @@ export async function toggleRegistration(id: number) {
 
 export async function updateTournamentLevels(id: number, levels: LevelData[]) {
     const ds = await getDataSource()
-    const repo = ds.getRepository(Tournament)
-    const levelRepo = ds.getRepository(TournamentLevel)
+    const repo = ds.getRepository<Tournament>('Tournament')
+    const levelRepo = ds.getRepository<TournamentLevel>('TournamentLevel')
 
     const t = await repo.findOne({ where: { id }, relations: { levels: true } })
     if (!t) throw new Error("Tournament not found")
@@ -297,7 +297,7 @@ interface DisplaySettings {
 
 export async function updateDisplaySettings(id: number, settings: DisplaySettings) {
     const ds = await getDataSource()
-    const repo = ds.getRepository(Tournament)
+    const repo = ds.getRepository<Tournament>('Tournament')
 
     const t = await repo.findOne({ where: { id } })
     if (!t) throw new Error('Tournament not found')
@@ -311,7 +311,7 @@ export async function updateDisplaySettings(id: number, settings: DisplaySetting
 
 export async function eliminatePlayer(registrationId: number, bountyCount: number = 0) {
     const ds = await getDataSource()
-    const regRepo = ds.getRepository(Registration)
+    const regRepo = ds.getRepository<Registration>('Registration')
 
     const reg = await regRepo.findOne({
         where: { id: registrationId },
@@ -346,14 +346,14 @@ export async function eliminatePlayer(registrationId: number, bountyCount: numbe
     // Auto-assign payout
     const payout = reg.tournament.payouts.find(p => p.place === place)
     if (payout) {
-        const payoutRepo = ds.getRepository(Payout)
+        const payoutRepo = ds.getRepository<Payout>('Payout')
         payout.player = reg.player
         await payoutRepo.save(payout)
     }
 
     // Auto-level up for FREE tournaments
     if (reg.tournament.type === 'FREE') {
-        const tRepo = ds.getRepository(Tournament)
+        const tRepo = ds.getRepository<Tournament>('Tournament')
         const tournament = await tRepo.findOne({
             where: { id: reg.tournament.id },
             relations: { levels: true }
@@ -381,7 +381,7 @@ export async function eliminatePlayer(registrationId: number, bountyCount: numbe
 
 async function checkAndBalanceTables(tournamentId: number) {
     const ds = await getDataSource()
-    const tableRepo = ds.getRepository(Table)
+    const tableRepo = ds.getRepository<Table>('Table')
 
     // Get all tables with their seated players
     const tables = await tableRepo.find({
@@ -493,7 +493,7 @@ async function checkAndBalanceTables(tournamentId: number) {
 
 export async function rebuyPlayer(registrationId: number) {
     const ds = await getDataSource()
-    const regRepo = ds.getRepository(Registration)
+    const regRepo = ds.getRepository<Registration>('Registration')
 
     const reg = await regRepo.findOne({ where: { id: registrationId } })
     if (reg) {
@@ -506,7 +506,7 @@ export async function rebuyPlayer(registrationId: number) {
 
 export async function removePlayerFromTournament(registrationId: number) {
     const ds = await getDataSource()
-    const regRepo = ds.getRepository(Registration)
+    const regRepo = ds.getRepository<Registration>('Registration')
 
     const reg = await regRepo.findOne({
         where: { id: registrationId },
@@ -529,9 +529,9 @@ export async function removePlayerFromTournament(registrationId: number) {
 
 export async function registerPlayer(tournamentId: number, playerId: number) {
     const ds = await getDataSource()
-    const regRepo = ds.getRepository(Registration)
-    const tRepo = ds.getRepository(Tournament)
-    const pRepo = ds.getRepository(Player)
+    const regRepo = ds.getRepository<Registration>('Registration')
+    const tRepo = ds.getRepository<Tournament>('Tournament')
+    const pRepo = ds.getRepository<Player>('Player')
 
     const tournament = await tRepo.findOne({ where: { id: tournamentId } })
     const player = await pRepo.findOne({ where: { id: playerId } })
@@ -581,7 +581,7 @@ export async function registerPlayer(tournamentId: number, playerId: number) {
 
 export async function createPlayer(name: string) {
     const ds = await getDataSource()
-    const repo = ds.getRepository(Player)
+    const repo = ds.getRepository<Player>('Player')
 
     const player = new Player()
     player.firstName = name
@@ -597,12 +597,12 @@ export async function getStatistics() {
     const ds = await getDataSource()
 
     // Global Stats
-    const totalTournaments = await ds.getRepository(Tournament).count()
-    const totalPlayers = await ds.getRepository(Player).count()
+    const totalTournaments = await ds.getRepository<Tournament>('Tournament').count()
+    const totalPlayers = await ds.getRepository<Player>('Player').count()
 
     // Leaderboard (Free Tournaments)
     // We use getRawMany to aggregate points
-    const leaderboard = await ds.getRepository(Registration)
+    const leaderboard = await ds.getRepository<Registration>('Registration')
         .createQueryBuilder("reg")
         .leftJoin("reg.player", "player")
         .leftJoin("reg.tournament", "tournament")
@@ -640,7 +640,7 @@ export async function getRankedStatistics(season?: string) {
     const ds = await getDataSource()
 
     // Get all FREE tournaments, optionally filtered by season
-    const tournamentQuery = ds.getRepository(Tournament)
+    const tournamentQuery = ds.getRepository<Tournament>('Tournament')
         .createQueryBuilder("tournament")
         .where("tournament.type = :type", { type: "FREE" })
         .andWhere("tournament.status = :status", { status: "FINISHED" })
@@ -657,7 +657,7 @@ export async function getRankedStatistics(season?: string) {
     }
 
     // Get all registrations for these tournaments
-    const registrations = await ds.getRepository(Registration)
+    const registrations = await ds.getRepository<Registration>('Registration')
         .createQueryBuilder("reg")
         .leftJoinAndSelect("reg.player", "player")
         .leftJoinAndSelect("reg.tournament", "tournament")
@@ -714,7 +714,7 @@ export async function getPaidStatistics() {
     const ds = await getDataSource()
 
     // Get all PAID tournaments
-    const tournaments = await ds.getRepository(Tournament)
+    const tournaments = await ds.getRepository<Tournament>('Tournament')
         .createQueryBuilder("tournament")
         .where("tournament.type = :type", { type: "PAID" })
         .andWhere("tournament.status = :status", { status: "FINISHED" })
@@ -728,7 +728,7 @@ export async function getPaidStatistics() {
     const tournamentIds = tournaments.map(t => t.id)
 
     // Get all registrations to know who played
-    const registrations = await ds.getRepository(Registration)
+    const registrations = await ds.getRepository<Registration>('Registration')
         .createQueryBuilder("reg")
         .leftJoinAndSelect("reg.player", "player")
         .leftJoinAndSelect("reg.tournament", "tournament")
@@ -736,7 +736,7 @@ export async function getPaidStatistics() {
         .getMany()
 
     // Get all payouts to know who won money
-    const payouts = await ds.getRepository(Payout)
+    const payouts = await ds.getRepository<Payout>('Payout')
         .createQueryBuilder("payout")
         .leftJoinAndSelect("payout.player", "player")
         .leftJoinAndSelect("payout.tournament", "tournament")
@@ -831,7 +831,7 @@ export async function getPaidStatistics() {
 
 export async function getSeasons() {
     const ds = await getDataSource()
-    const result = await ds.getRepository(Tournament)
+    const result = await ds.getRepository<Tournament>('Tournament')
         .createQueryBuilder("tournament")
         .select("DISTINCT season")
         .where("season IS NOT NULL")
@@ -843,7 +843,7 @@ export async function getSeasons() {
 
 export async function registerRebuy(registrationId: number) {
     const ds = await getDataSource()
-    const regRepo = ds.getRepository(Registration)
+    const regRepo = ds.getRepository<Registration>('Registration')
 
     const reg = await regRepo.findOne({
         where: { id: registrationId },
@@ -860,7 +860,7 @@ export async function registerRebuy(registrationId: number) {
 
 export async function registerAddon(registrationId: number) {
     const ds = await getDataSource()
-    const regRepo = ds.getRepository(Registration)
+    const regRepo = ds.getRepository<Registration>('Registration')
 
     const reg = await regRepo.findOne({
         where: { id: registrationId },
@@ -879,7 +879,7 @@ export async function registerAddon(registrationId: number) {
 
 export async function getTemplates() {
     const ds = await getDataSource()
-    const repo = ds.getRepository(TournamentTemplate)
+    const repo = ds.getRepository<TournamentTemplate>('TournamentTemplate')
 
     const templates = await repo.find({
         order: { createdAt: 'DESC' },
@@ -891,7 +891,7 @@ export async function getTemplates() {
 
 export async function getTemplate(id: number) {
     const ds = await getDataSource()
-    const repo = ds.getRepository(TournamentTemplate)
+    const repo = ds.getRepository<TournamentTemplate>('TournamentTemplate')
 
     const template = await repo.findOne({
         where: { id },
@@ -941,7 +941,7 @@ export async function createTemplate(data: CreateTemplateData) {
 
 export async function deleteTemplate(id: number) {
     const ds = await getDataSource()
-    const repo = ds.getRepository(TournamentTemplate)
+    const repo = ds.getRepository<TournamentTemplate>('TournamentTemplate')
 
     await repo.delete(id)
     revalidatePath('/admin/templates')
@@ -949,7 +949,7 @@ export async function deleteTemplate(id: number) {
 
 export async function createTournamentFromTemplate(templateId: number, name: string, date: string, season?: string) {
     const ds = await getDataSource()
-    const templateRepo = ds.getRepository(TournamentTemplate)
+    const templateRepo = ds.getRepository<TournamentTemplate>('TournamentTemplate')
 
     const template = await templateRepo.findOne({
         where: { id: templateId },
@@ -984,8 +984,8 @@ export async function createTournamentFromTemplate(templateId: number, name: str
 
 export async function updateTemplate(id: number, data: CreateTemplateData) {
     const ds = await getDataSource()
-    const templateRepo = ds.getRepository(TournamentTemplate)
-    const levelRepo = ds.getRepository(TemplateLevel)
+    const templateRepo = ds.getRepository<TournamentTemplate>('TournamentTemplate')
+    const levelRepo = ds.getRepository<TemplateLevel>('TemplateLevel')
 
     const template = await templateRepo.findOne({
         where: { id },
@@ -1024,7 +1024,7 @@ export async function updateTemplate(id: number, data: CreateTemplateData) {
 
 export async function saveAsTemplate(tournamentId: number, templateName: string, templateDescription?: string) {
     const ds = await getDataSource()
-    const tournamentRepo = ds.getRepository(Tournament)
+    const tournamentRepo = ds.getRepository<Tournament>('Tournament')
 
     const tournament = await tournamentRepo.findOne({
         where: { id: tournamentId },
@@ -1059,7 +1059,7 @@ export async function saveAsTemplate(tournamentId: number, templateName: string,
 
 export async function getTables(tournamentId: number) {
     const ds = await getDataSource()
-    const tableRepo = ds.getRepository(Table)
+    const tableRepo = ds.getRepository<Table>('Table')
 
     const tables = await tableRepo.find({
         where: { tournament: { id: tournamentId } },
@@ -1072,8 +1072,8 @@ export async function getTables(tournamentId: number) {
 
 export async function createTable(tournamentId: number, maxSeats: number = 9) {
     const ds = await getDataSource()
-    const tableRepo = ds.getRepository(Table)
-    const tournamentRepo = ds.getRepository(Tournament)
+    const tableRepo = ds.getRepository<Table>('Table')
+    const tournamentRepo = ds.getRepository<Tournament>('Tournament')
 
     const tournament = await tournamentRepo.findOne({ where: { id: tournamentId } })
     if (!tournament) throw new Error('Tournament not found')
@@ -1097,8 +1097,8 @@ export async function createTable(tournamentId: number, maxSeats: number = 9) {
 
 export async function deleteTable(tableId: number) {
     const ds = await getDataSource()
-    const tableRepo = ds.getRepository(Table)
-    const regRepo = ds.getRepository(Registration)
+    const tableRepo = ds.getRepository<Table>('Table')
+    const regRepo = ds.getRepository<Registration>('Registration')
 
     const table = await tableRepo.findOne({
         where: { id: tableId },
@@ -1125,7 +1125,7 @@ export async function deleteTable(tableId: number) {
 
 export async function updateTable(tableId: number, maxSeats: number) {
     const ds = await getDataSource()
-    const tableRepo = ds.getRepository(Table)
+    const tableRepo = ds.getRepository<Table>('Table')
 
     const table = await tableRepo.findOne({
         where: { id: tableId },
@@ -1143,8 +1143,8 @@ export async function updateTable(tableId: number, maxSeats: number) {
 
 export async function movePlayer(registrationId: number, targetTableId: number, targetSeatNumber: number) {
     const ds = await getDataSource()
-    const regRepo = ds.getRepository(Registration)
-    const tableRepo = ds.getRepository(Table)
+    const regRepo = ds.getRepository<Registration>('Registration')
+    const tableRepo = ds.getRepository<Table>('Table')
 
     // Get the registration
     const registration = await regRepo.findOne({
@@ -1210,7 +1210,7 @@ export async function applyBreakTableRecommendation(tournamentId: number, recomm
 
 export async function unseatPlayer(registrationId: number) {
     const ds = await getDataSource()
-    const regRepo = ds.getRepository(Registration)
+    const regRepo = ds.getRepository<Registration>('Registration')
 
     const registration = await regRepo.findOne({
         where: { id: registrationId },
@@ -1229,8 +1229,8 @@ export async function unseatPlayer(registrationId: number) {
 
 export async function assignSeating(tournamentId: number) {
     const ds = await getDataSource()
-    const regRepo = ds.getRepository(Registration)
-    const tableRepo = ds.getRepository(Table)
+    const regRepo = ds.getRepository<Registration>('Registration')
+    const tableRepo = ds.getRepository<Table>('Table')
 
     // Get all registered players (not eliminated)
     const registrations = await regRepo.find({
@@ -1285,7 +1285,7 @@ export async function assignSeating(tournamentId: number) {
 
 export async function clearSeating(tournamentId: number) {
     const ds = await getDataSource()
-    const regRepo = ds.getRepository(Registration)
+    const regRepo = ds.getRepository<Registration>('Registration')
 
     await regRepo
         .createQueryBuilder()
@@ -1300,7 +1300,7 @@ export async function clearSeating(tournamentId: number) {
 
 export async function getSeatingChart(tournamentId: number) {
     const ds = await getDataSource()
-    const tableRepo = ds.getRepository(Table)
+    const tableRepo = ds.getRepository<Table>('Table')
 
     const tables = await tableRepo.find({
         where: { tournament: { id: tournamentId } },
@@ -1314,8 +1314,8 @@ export async function getSeatingChart(tournamentId: number) {
 // Auto-assign new player to balanced table
 async function autoAssignToTable(registrationId: number, tournamentId: number) {
     const ds = await getDataSource()
-    const tableRepo = ds.getRepository(Table)
-    const regRepo = ds.getRepository(Registration)
+    const tableRepo = ds.getRepository<Table>('Table')
+    const regRepo = ds.getRepository<Registration>('Registration')
 
     // Get all tables with player counts
     const tables = await tableRepo.find({
@@ -1363,11 +1363,11 @@ async function autoAssignToTable(registrationId: number, tournamentId: number) {
 
 export async function seatPlayers(tournamentId: number, registrationIds: number[]) {
     const ds = await getDataSource()
-    const regRepo = ds.getRepository(Registration)
-    const tableRepo = ds.getRepository(Table)
+    const regRepo = ds.getRepository<Registration>('Registration')
+    const tableRepo = ds.getRepository<Table>('Table')
 
     // Verify tournament and registrations
-    const tournament = await ds.getRepository(Tournament).findOne({
+    const tournament = await ds.getRepository<Tournament>('Tournament').findOne({
         where: { id: tournamentId },
         relations: { tables: { registrations: true } }
     })
@@ -1427,7 +1427,7 @@ export async function seatPlayers(tournamentId: number, registrationIds: number[
 
 export async function getSystemSettings() {
     const ds = await getDataSource()
-    const repo = ds.getRepository(SystemSettings)
+    const repo = ds.getRepository<SystemSettings>('SystemSettings')
 
     let settings = await repo.findOne({ where: { id: 1 } })
 
@@ -1443,7 +1443,7 @@ export async function getSystemSettings() {
 
 export async function updateSystemSettings(theme: string) {
     const ds = await getDataSource()
-    const repo = ds.getRepository(SystemSettings)
+    const repo = ds.getRepository<SystemSettings>('SystemSettings')
 
     let settings = await repo.findOne({ where: { id: 1 } })
 

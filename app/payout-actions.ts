@@ -6,8 +6,8 @@ import { revalidatePath } from 'next/cache'
 
 export async function addPayout(tournamentId: number, amount: number, place?: number, description?: string) {
     const ds = await getDataSource()
-    const payoutRepo = ds.getRepository(Payout)
-    const tournamentRepo = ds.getRepository(Tournament)
+    const payoutRepo = ds.getRepository<Payout>('Payout')
+    const tournamentRepo = ds.getRepository<Tournament>('Tournament')
 
     const tournament = await tournamentRepo.findOne({ where: { id: tournamentId } })
     if (!tournament) throw new Error('Tournament not found')
@@ -24,7 +24,7 @@ export async function addPayout(tournamentId: number, amount: number, place?: nu
 
 export async function removePayout(payoutId: number) {
     const ds = await getDataSource()
-    const payoutRepo = ds.getRepository(Payout)
+    const payoutRepo = ds.getRepository<Payout>('Payout')
 
     const payout = await payoutRepo.findOne({
         where: { id: payoutId },
@@ -40,8 +40,8 @@ export async function removePayout(payoutId: number) {
 
 export async function assignPayout(payoutId: number, playerId: number | null) {
     const ds = await getDataSource()
-    const payoutRepo = ds.getRepository(Payout)
-    const playerRepo = ds.getRepository(Player)
+    const payoutRepo = ds.getRepository<Payout>('Payout')
+    const playerRepo = ds.getRepository<Player>('Player')
 
     const payout = await payoutRepo.findOne({
         where: { id: payoutId },
@@ -64,8 +64,8 @@ export async function assignPayout(payoutId: number, playerId: number | null) {
 
 export async function applyPayoutStructure(tournamentId: number, payouts: { amount: number, place: number, description?: string }[]) {
     const ds = await getDataSource()
-    const payoutRepo = ds.getRepository(Payout)
-    const tournamentRepo = ds.getRepository(Tournament)
+    const payoutRepo = ds.getRepository<Payout>('Payout')
+    const tournamentRepo = ds.getRepository<Tournament>('Tournament')
 
     const tournament = await tournamentRepo.findOne({ where: { id: tournamentId } })
     if (!tournament) throw new Error('Tournament not found')
@@ -89,7 +89,7 @@ export async function applyPayoutStructure(tournamentId: number, payouts: { amou
 
 export async function updatePayout(payoutId: number, amount: number, place?: number, description?: string) {
     const ds = await getDataSource()
-    const payoutRepo = ds.getRepository(Payout)
+    const payoutRepo = ds.getRepository<Payout>('Payout')
 
     const payout = await payoutRepo.findOne({
         where: { id: payoutId },
